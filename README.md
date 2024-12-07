@@ -1,0 +1,2 @@
+# FrameCapture
+截取strm文件的随机帧作为poster和fanart
