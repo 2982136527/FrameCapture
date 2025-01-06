@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>视频帧截取工具</title>
+    <style>
+        /* 页面整体样式 */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f0f4ff, #e6f9ff);
+        }
+
+        /* 容器样式，拟物风格 */
+       .container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 8px 8px 16px #d1d9e6, -8px -8px 16px #ffffff;
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 24px;
+            color: #333;
+        }
+
+        /* 文件夹路径选择区域样式 */
+       .folder-path-section,
+       .interval-time-section,
+       .options {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        select,
+        input[type="number"] {
+            padding: 10px;
+            font-size: 14px;
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto;
+            display: block;
+            border: none;
+            border-radius: 5px;
+            box-shadow: inset 2px 2px 5px #d1d9e6, inset -2px -2px 5px #ffffff;
+            background-color: #f9f9f9;
+        }
+
+        input[type="radio"] {
+            margin-right: 5px;
+        }
+
+        /* 按钮样式 */
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #ffffff;
+            color: #007BFF;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 4px 4px 8px #d1d9e6, -4px -4px 8px #ffffff;
+            transition: 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #e6f9ff;
+            box-shadow: inset 2px 2px 5px #d1d9e6, inset -2px -2px 5px #ffffff;
+        }
+
+        /* 日志显示区域样式，支持滚动 */
+       .log {
+            margin-top: 20px;
+            padding: 15px;
+            height: 200px;
+            overflow-y: auto;
+            border-radius: 5px;
+            box-shadow: inset 4px 4px 8px #d1d9e6, inset -4px -4px 8px #ffffff;
+            background-color: #f9f9f9;
+            text-align: left;
+            font-size: 14px;
+            color: #333;
+        }
+
+       .log p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>视频帧截取工具</h1>
+
+        <!-- 文件夹路径选择区域 -->
+        <div class="folder-path-section">
+            <label for="folderPath">选择存放.strm 文件的文件夹路径：</label>
+            <select id="folderPath" onchange="updateFolderPath()">
+                <option value="strm">strm（根目录）</option>
+                <!-- 通过 JavaScript 动态添加子文件夹选项 -->
+            </select>
+        </div>
+
+        <!-- 间隔时间输入区域 -->
+        <div class="interval-time-section">
+            <label for="intervalTime">设置每次截取不同视频的间隔时间（秒）：</label>
+            <input type="number" id="intervalTime" min="0" step="1" value="321">
+        </div>
+
+        <!-- 选项区域 -->
+        <div class="options">
+            <label><input type="radio" name="generateOption" id="generateFanart" value="fanart">生成 fanart （大-横图）</label>
+            <label><input type="radio" name="generateOption" id="generatePoster" value="poster">生成 poster （小-竖图）</label>
+        </div>
+
+        <!-- 按钮 -->
+        <button id="startCapture">开始截取</button>
+
+        <!-- 日志显示区域 -->
+        <div id="log" class="log"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const folderPathSelect = document.getElementById('folderPath');
+            const intervalTimeInput = document.getElementById('intervalTime');
+            const generateFanartRadio = document.getElementById('generateFanart');
+            const generatePosterRadio = document.getElementById('generatePoster');
+            const startCaptureButton = document.getElementById('startCapture');
+            const logDiv = document.getElementById('log');
+
+            const socket = io(); // 创建 Socket.IO 实例
+
+            socket.on('log', function (msg) {
+                // 接收后端日志并显示
+                logDiv.innerHTML += `<p>${msg}</p>`;
+                logDiv.scrollTop = logDiv.scrollHeight; // 滚动到最新内容
+            });
+
+            // 获取子文件夹列表
+            function loadSubFolders() {
+                fetch('/get_subfolders')
+                   .then(response => response.json())
+                   .then(data => {
+                        data.forEach(folder => {
+                            const option = document.createElement('option');
+                            option.value = folder;
+                            option.textContent = folder;
+                            folderPathSelect.appendChild(option);
+                        });
+                    })
+                   .catch(error => {
+                        console.error("获取子文件夹列表出现错误:", error);
+                    });
+            }
+
+            loadSubFolders();
+
+            startCaptureButton.addEventListener('click', function () {
+                const generateFanart = generateFanartRadio.checked;
+                const generatePoster = generatePosterRadio.checked;
+                const folderPath = folderPathSelect.value;
+                const intervalTime = parseInt(intervalTimeInput.value);
+
+                if (isNaN(intervalTime) || intervalTime < 0) {
+                    logDiv.innerHTML += '<p>请输入有效的非负整数间隔时间。</p>';
+                    return;
+                }
+
+                const selectedOption = generateFanart? 'fanart' : 'poster';
+
+                fetch('/capture', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        generateFanart: selectedOption === 'fanart',
+                        generatePoster: selectedOption === 'poster',
+                        folder_path: folderPath,
+                        interval_time: intervalTime
+                    })
+                })
+                   .then(response => response.json())
+                   .then(data => {
+                        logDiv.innerHTML += '<p>操作成功，日志如下：</p>';
+                        data.logs.forEach(log => {
+                            logDiv.innerHTML += `<p>${log}</p>`;
+                        });
+                        logDiv.scrollTop = logDiv.scrollHeight;
+                    })
+                   .catch(error => {
+                        logDiv.innerHTML += `<p>发生网络错误：${error}</p>`;
+                    });
+            });
+        });
+    </script>
+</body>
+
+</html>
