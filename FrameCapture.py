@@ -6,7 +6,6 @@ from tkinter import filedialog, messagebox
 import logging
 from tkinter.scrolledtext import ScrolledText
 
-# 自定义日志处理器，将日志消息写入指定的Tkinter ScrolledText控件
 class TextHandler(logging.Handler):
     def __init__(self, text_widget):
         super().__init__()
@@ -14,13 +13,12 @@ class TextHandler(logging.Handler):
 
     def emit(self, record):
         msg = self.format(record)
-        self.widget.configure(state='normal')  # 允许修改文本框内容
-        self.widget.insert(tk.END, msg + '\n')  # 插入新行
-        self.widget.see(tk.END)  # 滚动至文本末尾
-        self.widget.update_idletasks()  # 更新GUI
-        self.widget.configure(state='disabled')  # 再次禁用文本框编辑
+        self.widget.configure(state='normal')  
+        self.widget.insert(tk.END, msg + '\n')  
+        self.widget.see(tk.END) 
+        self.widget.update_idletasks() 
+        self.widget.configure(state='disabled') 
 
-# 主日志查看器类
 class LogViewer(tk.Frame):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
@@ -28,7 +26,6 @@ class LogViewer(tk.Frame):
         self.log_text.pack(fill=tk.BOTH, expand=True)
         self.logger = logging.getLogger('tkinter_log_viewer')
         self.logger.setLevel(logging.DEBUG)
-        # 创建一个自定义的日志处理器
         self.text_handler = TextHandler(self.log_text)
         self.logger.addHandler(self.text_handler)
 
@@ -112,20 +109,16 @@ def capture_random_frame(video_path, output_folder, generate_fanart, generate_po
     elif not ret2:
         logger.error(f"错误：无法读取视频 {video_path} 的第 {random_frame2} 帧。")
     
-    # 释放视频捕获对象
     cap.release()
 
 def select_generation_options(log_viewer):
-    # 创建变量来存储用户的选择
     generate_fanart_var = tk.BooleanVar()
     generate_poster_var = tk.BooleanVar()
 
-    # 创建复选框
     tk.Label(log_viewer, text="选择你想要生成的图像：").pack(pady=10)
     tk.Checkbutton(log_viewer, text="生成fanart", variable=generate_fanart_var).pack()
     tk.Checkbutton(log_viewer, text="生成poster", variable=generate_poster_var).pack()
 
-    # 创建确认按钮
     def confirm_selection():
         generate_fanart = generate_fanart_var.get()
         generate_poster = generate_poster_var.get()
